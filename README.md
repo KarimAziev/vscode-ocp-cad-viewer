@@ -182,6 +182,10 @@ The "Library Manager" in the _OCP CAD Viewer_ sidebar lets you install or upgrad
 - [Download examples for build123d or cadquery](docs/examples.md)
 - [Use the build123d snippets](docs/snippets.md)
 
+#### Other editors support
+
+- [Using OCP CAD Viewer with NeoVim](docs/editors.md)
+
 #### Help
 
 - [Troubleshooting](docs/troubleshooting.md)
