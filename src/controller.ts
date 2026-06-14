@@ -215,6 +215,11 @@ export class OCPCADController {
                                 this.view?.postMessage(JSON.stringify(cmd));
                             } else if (cmd.type === "set_relative_time") {
                                 this.view?.postMessage(JSON.stringify(cmd));
+                            } else if (
+                                cmd.type === "viewer_command" &&
+                                typeof cmd.command === "string"
+                            ) {
+                                this.view?.postMessage(JSON.stringify(cmd));
                             }
                         } else if (messageType === "D") {
                             output.debug("OCPCADController.messages: Received a new model");

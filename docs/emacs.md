@@ -97,6 +97,12 @@ viewer_command("pan", direction="left", step=10, port=3939)
 viewer_command("zoom", delta=100, port=3939)
 ```
 
+The helper is fire-and-forget: a `{}` return means the websocket payload was
+sent, not that the browser accepted or applied the camera command. This command
+channel is supported by the standalone viewer websocket and the VS Code viewer
+command server; the standalone `/viewer` URL remains the simplest target for an
+Emacs xwidget workflow.
+
 ## Emacs Command Shape
 
 An Emacs integration can mirror the navigation shape used by

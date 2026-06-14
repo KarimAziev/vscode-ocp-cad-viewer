@@ -1,4 +1,6 @@
-"""Tests for the standalone viewer_command websocket protocol."""
+"""Tests for the viewer_command websocket protocol."""
+
+from pathlib import Path
 
 import pytest
 
@@ -168,3 +170,13 @@ def test_viewer_command_helper_protects_reserved_type_field(monkeypatch):
             False,
         )
     ]
+
+
+def test_vscode_command_server_forwards_viewer_commands():
+    controller_source = Path("src/controller.ts").read_text(encoding="utf-8")
+
+    assert 'cmd.type === "viewer_command"' in controller_source
+    viewer_command_branch = controller_source.split('cmd.type === "viewer_command"', 1)[1]
+
+    assert 'typeof cmd.command === "string"' in viewer_command_branch
+    assert "this.view?.postMessage(JSON.stringify(cmd));" in viewer_command_branch
