@@ -355,6 +355,21 @@ class Viewer:
             "\nNo browser registered. Please open the viewer in a browser or refresh the viewer page\n"
         )
 
+    @staticmethod
+    def _is_viewer_command(cmd):
+        return (
+            isinstance(cmd, dict)
+            and cmd.get("type") == "viewer_command"
+            and isinstance(cmd.get("command"), str)
+        )
+
+    def _forward_viewer_command(self, data):
+        if self.javascript_client is None:
+            self.not_registered()
+            return False
+        self.javascript_client.send(data)
+        return True
+
     def handle_message(self, ws):
         while True:
             data = ws.receive()
@@ -392,6 +407,13 @@ class Viewer:
                         self.not_registered()
                         continue
                     self.javascript_client.send(data)
+
+                elif Viewer._is_viewer_command(cmd):
+                    self.debug_print("Received viewer_command command")
+                    self._forward_viewer_command(data)
+
+                elif isinstance(cmd, dict) and cmd.get("type") == "viewer_command":
+                    self.debug_print("Ignoring malformed viewer_command command")
 
             elif message_type == "D":
                 self.python_client = ws
