@@ -73,6 +73,7 @@ class MessageType(enum.IntEnum):
 __all__ = [
     "send_data",
     "send_command",
+    "viewer_command",
     "send_response",
     "set_port",
     "get_port",
@@ -165,7 +166,11 @@ def _send(data, message_type, port=None, timeit=False):
                         timeit, "", f"websocket send {len(j) / 1024 / 1024:.3f} MB", 1
                     ):
                         result = None
-                        no_response_commands = ("screenshot", "set_relative_time")
+                        no_response_commands = (
+                            "screenshot",
+                            "set_relative_time",
+                            "viewer_command",
+                        )
                         if message_type == MessageType.COMMAND and not (
                             isinstance(data, dict)
                             and data.get("type") in no_response_commands
@@ -240,6 +245,14 @@ def send_command(data, port=None, title=None, timeit=False):
         return result["text"]
     else:
         return result
+
+
+def viewer_command(command, port=None, timeit=False, **kwargs):
+    """Send a fire-and-forget viewer_command to the browser viewer."""
+    data = dict(kwargs)
+    data["type"] = "viewer_command"
+    data["command"] = command
+    return send_command(data, port=port, timeit=timeit)
 
 
 def send_backend(data, port=None, timeit=False):
