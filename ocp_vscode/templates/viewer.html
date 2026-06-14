@@ -183,6 +183,163 @@ limitations under the License.
                 return [v[0] / n, v[1] / n, v[2] / n];
             }
 
+            function degreesToRadians(degrees) {
+                return (degrees * Math.PI) / 180.0;
+            }
+
+            function isFiniteNumber(value) {
+                return typeof value === "number" && Number.isFinite(value);
+            }
+
+            function cameraRight(camera) {
+                const right = camera.position.clone().set(1, 0, 0);
+                return right.applyQuaternion(camera.quaternion).normalize();
+            }
+
+            function cameraScreenUp(camera) {
+                const up = camera.position.clone().set(0, 1, 0);
+                return up.applyQuaternion(camera.quaternion).normalize();
+            }
+
+            function cameraStatus(sendUpdate = true) {
+                if (!viewer) {
+                    return;
+                }
+                _position = message["position"] = viewer.getCameraPosition();
+                _quaternion = message["quaternion"] = viewer.getCameraQuaternion();
+                _target = message["target"] = viewer.controls.getTarget().toArray();
+                _zoom = message["zoom"] = viewer.getCameraZoom();
+                _camera_distance = viewer.camera.camera_distance;
+                message["camera_distance"] = _camera_distance;
+                if (sendUpdate) {
+                    send("status", message);
+                }
+            }
+
+            function refreshAfterCameraCommand() {
+                if (!viewer) {
+                    return;
+                }
+                if (viewer.gridHelper) {
+                    viewer.gridHelper.clearCache();
+                    viewer.gridHelper.update(viewer.getCameraZoom(), true);
+                }
+                viewer.update(true, true);
+                cameraStatus();
+            }
+
+            function applyCameraTargetAndPosition(target, position) {
+                viewer.setCameraTarget(target.toArray());
+                viewer.setCameraPosition(position.toArray());
+                const camera = viewer.camera.getCamera();
+                camera.lookAt(target);
+                viewer.setCameraQuaternion(camera.quaternion.toArray());
+                refreshAfterCameraCommand();
+            }
+
+            function handleViewerCommand(data) {
+                if (!viewer || !data || typeof data.command !== "string") {
+                    return;
+                }
+
+                const command = data.command;
+                if (command === "view") {
+                    const views = ["iso", "left", "right", "top", "bottom", "rear", "front"];
+                    if (views.includes(data.value)) {
+                        viewer.setView(data.value);
+                        refreshAfterCameraCommand();
+                    }
+                    return;
+                }
+
+                if (command === "reset") {
+                    viewer.setView("iso");
+                    viewer.resize();
+                    refreshAfterCameraCommand();
+                    return;
+                }
+
+                if (command === "set") {
+                    if (Array.isArray(data.target)) {
+                        viewer.setCameraTarget(data.target);
+                    }
+                    if (Array.isArray(data.position)) {
+                        viewer.setCameraPosition(data.position);
+                    }
+                    if (Array.isArray(data.quaternion)) {
+                        viewer.setCameraQuaternion(data.quaternion);
+                    }
+                    if (isFiniteNumber(data.zoom)) {
+                        viewer.setCameraZoom(data.zoom);
+                    }
+                    refreshAfterCameraCommand();
+                    return;
+                }
+
+                if (command === "zoom") {
+                    const delta = isFiniteNumber(data.delta) ? data.delta : 0;
+                    const currentZoom = viewer.getCameraZoom();
+                    const nextZoom = Math.max(0.01, currentZoom + delta / 1000.0);
+                    viewer.setCameraZoom(nextZoom);
+                    refreshAfterCameraCommand();
+                    return;
+                }
+
+                const camera = viewer.camera.getCamera();
+                const target = viewer.controls.getTarget().clone();
+                const position = camera.position.clone();
+
+                if (command === "pan") {
+                    const step = isFiniteNumber(data.step) ? data.step : 10;
+                    const direction = data.direction;
+                    const forward = target.clone().sub(position).normalize();
+                    const right = cameraRight(camera);
+                    const screenUp = cameraScreenUp(camera);
+                    const delta = position.clone().set(0, 0, 0);
+
+                    if (direction === "left") {
+                        delta.add(right.clone().multiplyScalar(-step));
+                    } else if (direction === "right") {
+                        delta.add(right.clone().multiplyScalar(step));
+                    } else if (direction === "up") {
+                        delta.add(screenUp.clone().multiplyScalar(step));
+                    } else if (direction === "down") {
+                        delta.add(screenUp.clone().multiplyScalar(-step));
+                    } else if (direction === "forward") {
+                        delta.add(forward.clone().multiplyScalar(step));
+                    } else if (direction === "backward") {
+                        delta.add(forward.clone().multiplyScalar(-step));
+                    } else {
+                        return;
+                    }
+
+                    applyCameraTargetAndPosition(target.add(delta), position.add(delta));
+                    return;
+                }
+
+                if (command === "rotate") {
+                    const delta = isFiniteNumber(data.delta) ? data.delta : 0;
+                    const radians = degreesToRadians(delta);
+                    const up = camera.up.clone().normalize();
+                    const right = cameraRight(camera);
+                    const axis =
+                        data.axis === "x"
+                            ? right
+                            : data.axis === "z"
+                              ? up
+                              : null;
+
+                    if (axis == null) {
+                        return;
+                    }
+
+                    const rotation = camera.quaternion.clone();
+                    rotation.setFromAxisAngle(axis, radians);
+                    const offset = position.sub(target).applyQuaternion(rotation);
+                    applyCameraTargetAndPosition(target, target.clone().add(offset));
+                }
+            }
+
             function send(command, message) {
                 vscode.postMessage({
                     command: command,
@@ -598,11 +755,7 @@ limitations under the License.
                     viewer.setView(reset_camera);
                 }
 
-                _position = message["position"] = viewer.getCameraPosition();
-                _quaternion = message["quaternion"] = viewer.getCameraQuaternion();
-                _target = message["target"] = viewer.controls.getTarget().toArray();
-                _zoom = message["zoom"] = viewer.getCameraZoom();
-                _camera_distance = viewer.camera.camera_distance;
+                cameraStatus(false);
 
                 // Sliders and normals are no longer captured — three-cad-viewer
                 // owns persistence policy (keep on same bbox, reset on different).
@@ -762,6 +915,8 @@ limitations under the License.
                     if (viewer) {
                         viewer.setRelativeTime(data.value);
                     }
+                } else if (data.type === "viewer_command") {
+                    handleViewerCommand(data);
                 } else if (data.type === "backend_response") {
                     viewer.handleBackendResponse(data);
                 } else if (data.type === "clear") {
