@@ -61,8 +61,11 @@ export async function pipList(python: string): Promise<Map<string, Omit<Package,
             result = execute(`"${python}" -m pip list -v --format json`, false);
         }
     } catch (error: any) {
-        output.error("ocpCadViewer.libraryManager: " + error.stderr.toString());
-        vscode.window.showErrorMessage("Neither pip nor uv pip can list libraries");
+        output.error("ocpCadViewer.libraryManager: " + (error.stderr?.toString() ?? error.message ?? String(error)));
+        // Logged to the output channel rather than a popup: findInstalledLibraries
+        // runs on every startup, so a failing pip list (e.g. a broken interpreter)
+        // would otherwise pop an error notification in every VS Code window.
+        output.error("Neither pip nor uv pip can list libraries");
     }
     if (result != null) {
         return parsePackageData(result);
