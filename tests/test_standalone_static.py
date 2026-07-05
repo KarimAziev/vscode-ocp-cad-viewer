@@ -4,6 +4,29 @@ import ocp_vscode.standalone as standalone
 from ocp_vscode.standalone import Viewer
 
 
+def test_packaged_three_cad_viewer_assets_are_present():
+    assert (standalone.STATIC_ROOT / "js" / "three-cad-viewer.esm.js").is_file()
+    assert (standalone.STATIC_ROOT / "css" / "three-cad-viewer.css").is_file()
+    assert (
+        standalone.STATIC_ROOT
+        / "THIRD_PARTY_LICENSES"
+        / "three-cad-viewer-LICENSE.txt"
+    ).is_file()
+
+
+def test_serves_packaged_three_cad_viewer_assets():
+    viewer = Viewer({"port": 0})
+    client = viewer.app.test_client()
+
+    js_response = client.get("/static/js/three-cad-viewer.esm.js")
+    css_response = client.get("/static/css/three-cad-viewer.css")
+
+    assert js_response.status_code == 200
+    assert b"three-cad-viewer" in js_response.data or b"THREE" in js_response.data
+    assert css_response.status_code == 200
+    assert b"--tcv-" in css_response.data
+
+
 def test_cleanup_ignores_unstarted_port(monkeypatch):
     monkeypatch.setattr(standalone, "PORT", 0)
 

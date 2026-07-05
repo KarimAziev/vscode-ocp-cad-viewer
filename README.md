@@ -144,6 +144,7 @@ cd vscode-ocp-cad-viewer
 uv venv .venv
 uv pip install -e .
 
+# Needed for TypeScript/VS Code extension development.
 corepack yarn install --frozen-lockfile
 ```
 
@@ -167,10 +168,9 @@ The viewer will be available at:
 http://127.0.0.1:3939/viewer
 ```
 
-The `corepack yarn install --frozen-lockfile` step is needed for source
-checkouts because the standalone browser viewer uses the `three-cad-viewer`
-JavaScript/CSS assets from `node_modules` when release-packaged static assets
-are not present.
+This fork vendors the standalone viewer's `three-cad-viewer` JavaScript/CSS
+assets into the Python package, so Git-based `pip`/`uv` installs can serve
+`/viewer` without requiring `node_modules` in the consuming project.
 
 If you install from PyPI, you get the upstream `ocp-vscode` package unless this
 fork has been published separately:
@@ -466,10 +466,10 @@ The upstream Makefile still provides the broader test target:
 make tests
 ```
 
-For release packaging, `make dist` copies `three-cad-viewer` assets into
-`ocp_vscode/static` and builds Python/VSIX artifacts. For local standalone
-development, this fork can also serve those assets directly from
-`node_modules/three-cad-viewer/dist` after `yarn install`.
+This fork vendors `three-cad-viewer` assets in `ocp_vscode/static` so Python
+wheel/Git installs are self-contained. For local standalone development, the
+server can also fall back to `node_modules/three-cad-viewer/dist` after
+`yarn install` if those packaged files are being regenerated.
 
 ## Changes
 
