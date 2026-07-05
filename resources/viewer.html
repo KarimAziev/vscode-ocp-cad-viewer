@@ -340,6 +340,102 @@ limitations under the License.
                 }
             }
 
+            const keyboardRotateStep = 10;
+            const keyboardPanStep = 10;
+            const keyboardZoomDelta = 100;
+
+            function isKeyboardTextInputTarget(target) {
+                if (!target) {
+                    return false;
+                }
+                if (target.isContentEditable) {
+                    return true;
+                }
+                if (typeof target.closest === "function") {
+                    return target.closest("input, textarea, select, [contenteditable]") !== null;
+                }
+                return false;
+            }
+
+            function browserKeyboardViewerCommand(event) {
+                if (
+                    event.defaultPrevented ||
+                    event.ctrlKey ||
+                    event.altKey ||
+                    event.metaKey ||
+                    isKeyboardTextInputTarget(event.target)
+                ) {
+                    return null;
+                }
+
+                if (event.shiftKey) {
+                    if (event.key === "ArrowLeft") {
+                        return { command: "pan", direction: "left", step: keyboardPanStep };
+                    }
+                    if (event.key === "ArrowRight") {
+                        return { command: "pan", direction: "right", step: keyboardPanStep };
+                    }
+                    if (event.key === "ArrowUp") {
+                        return { command: "pan", direction: "up", step: keyboardPanStep };
+                    }
+                    if (event.key === "ArrowDown") {
+                        return { command: "pan", direction: "down", step: keyboardPanStep };
+                    }
+                } else {
+                    if (event.key === "ArrowLeft") {
+                        return { command: "rotate", axis: "z", delta: keyboardRotateStep };
+                    }
+                    if (event.key === "ArrowRight") {
+                        return { command: "rotate", axis: "z", delta: -keyboardRotateStep };
+                    }
+                    if (event.key === "ArrowUp") {
+                        return { command: "rotate", axis: "x", delta: keyboardRotateStep };
+                    }
+                    if (event.key === "ArrowDown") {
+                        return { command: "rotate", axis: "x", delta: -keyboardRotateStep };
+                    }
+                }
+
+                const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+                if (key === "+" || key === "=") {
+                    return { command: "zoom", delta: keyboardZoomDelta };
+                }
+                if (key === "-" || key === "_") {
+                    return { command: "zoom", delta: -keyboardZoomDelta };
+                }
+                if (key === "0") {
+                    return { command: "reset" };
+                }
+
+                const fixedViews = {
+                    f: "front",
+                    t: "top",
+                    l: "left",
+                    r: "right",
+                    b: "rear",
+                    d: "bottom",
+                    i: "iso"
+                };
+                if (fixedViews[key]) {
+                    return { command: "view", value: fixedViews[key] };
+                }
+
+                return null;
+            }
+
+            function handleViewerKeydown(event) {
+                const command = browserKeyboardViewerCommand(event);
+                if (!command) {
+                    return;
+                }
+
+                event.preventDefault();
+                event.stopPropagation();
+                handleViewerCommand(Object.assign({ type: "viewer_command" }, command));
+            }
+
+            window.addEventListener("keydown", handleViewerKeydown);
+
             function send(command, message) {
                 vscode.postMessage({
                     command: command,

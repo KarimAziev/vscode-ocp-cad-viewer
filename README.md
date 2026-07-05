@@ -270,6 +270,40 @@ set_port(3939)
 show(cq.Workplane().box(1, 2, 3))
 ```
 
+### Browser keyboard controls
+
+The original mouse and touchpad controls remain available. This fork also adds
+browser-local keyboard controls that call the same `viewer_command` handler used
+by the Emacs/WebSocket API.
+
+The browser only intercepts these keys when the viewer page has focus. It leaves
+`Ctrl`, `Alt`, and `Meta` combinations alone, and ignores key events inside text
+inputs or editable elements.
+
+```text
+ArrowLeft          rotate left
+ArrowRight         rotate right
+ArrowUp            rotate up
+ArrowDown          rotate down
+
+Shift+ArrowLeft    pan left
+Shift+ArrowRight   pan right
+Shift+ArrowUp      pan up
+Shift+ArrowDown    pan down
+
++ / =              zoom in
+-                  zoom out
+
+f                  front view
+t                  top view
+l                  left view
+r                  right view
+b                  rear/back view
+d                  bottom/down view
+i                  isometric view
+0                  reset view
+```
+
 ### Emacs layer
 
 The intended build123d/CadQuery Emacs workflow is:

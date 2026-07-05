@@ -180,3 +180,14 @@ def test_vscode_command_server_forwards_viewer_commands():
 
     assert 'typeof cmd.command === "string"' in viewer_command_branch
     assert "this.view?.postMessage(JSON.stringify(cmd));" in viewer_command_branch
+
+
+def test_viewer_templates_include_browser_keyboard_controls():
+    resource_template = Path("resources/viewer.html").read_text(encoding="utf-8")
+    package_template = Path("ocp_vscode/templates/viewer.html").read_text(encoding="utf-8")
+
+    assert resource_template == package_template
+    assert 'window.addEventListener("keydown", handleViewerKeydown);' in resource_template
+    assert 'return { command: "rotate", axis: "z", delta: keyboardRotateStep };' in resource_template
+    assert 'return { command: "pan", direction: "left", step: keyboardPanStep };' in resource_template
+    assert 'return { command: "view", value: fixedViews[key] };' in resource_template
