@@ -22,6 +22,17 @@ It provides the `ocp123d` command, which starts a long-lived `ocp_vscode`
 viewer server, watches a project recursively, and re-runs preview entry scripts
 when Python files change.
 
+The three repos have separate responsibilities:
+
+```mermaid
+flowchart LR
+    subgraph Repositories[Repository responsibilities]
+        A[build123d-ocp-preview<br/><small>Keeps geometry fresh</small>]
+        B[vscode-ocp-cad-viewer<br/><small>Serves/displays geometry and exposes viewer_command</small>]
+        C[ocp-cad-viewer.el<br/><small>Keeps camera/navigation control inside Emacs</small>]
+    end
+```
+
 **Table of Contents**
 
 > - [About](#about)
@@ -29,14 +40,13 @@ when Python files change.
 >         - [Prerequisites](#prerequisites)
 >         - [Installation within VS Code](#installation-within-vs-code)
 >         - [Installation via CLI](#installation-via-cli)
->         - [Using this fork from another Python project](#using-this-fork-from-another-python-project)
 >         - [Installation in code-server](#installation-in-code-server)
 >     - [Usage](#usage)
 >         - [Running code with VS Code's "Run" menu](#running-code-with-vs-codes-run-menu)
 >         - [Running code using Jupyter extension](#running-code-using-jupyter-extension)
 >         - [Standalone mode](#standalone-mode)
 >         - [Emacs layer](#emacs-layer)
->         - [Hot reload with build123d](#hot-reload-with-build123d)
+>         - [Hot reload](#hot-reload)
 >         - [Viewer command API](#viewer-command-api)
 >         - [Debugging code with visual debugging](#debugging-code-with-visual-debugging)
 >         - [Library Manager](#library-manager)
@@ -137,74 +147,6 @@ show(cq.Workplane().box(1, 2, 3))
 </details>
 
 ### Installation via CLI
-
-If you aren't using VS Code, you can install/use this extension via command line
-
-Since this is a python extension, it is recommended to install/activate a virtual environment first, (e.g. uv, venv, poetry, conda, pip, etc)
-
-To use the fork-specific Emacs/standalone command API from a source checkout:
-
-```bash
-git clone https://github.com/KarimAziev/vscode-ocp-cad-viewer.git
-cd vscode-ocp-cad-viewer
-
-uv venv .venv
-uv pip install -e .
-
-# Needed for TypeScript/VS Code extension development.
-corepack yarn install --frozen-lockfile
-```
-
-Install your CAD library into the same environment, for example:
-
-```bash
-uv pip install cadquery
-# or
-uv pip install build123d
-```
-
-Then start the standalone viewer:
-
-```bash
-.venv/bin/python -m ocp_vscode --port 3939
-```
-
-The viewer will be available at:
-
-```text
-http://127.0.0.1:3939/viewer
-```
-
-This fork vendors the standalone viewer's `three-cad-viewer` JavaScript/CSS
-assets into the Python package, so Git-based `pip`/`uv` installs can serve
-`/viewer` without requiring `node_modules` in the consuming project.
-
-If you install from PyPI, you get the upstream `ocp-vscode` package unless this
-fork has been published separately:
-
-- uv based virtual environments:
-
-    ```
-    source .venv/bin/activate  # to activate the uv virtual environment
-    uv add ocp-vscode
-    ```
-
-- pip for other virtual environments:
-
-    ```
-    source .venv/bin/activate  # to activate venv virtual environments
-    conda / mamba / micromamba activate <env>  # to activate conda like virtual environments
-    pip install ocp-vscode
-    ```
-
-Notes:
-
-- The extension is in pypi only [pypi](https://pypi.org/project/ocp-vscode/), so for conda, mamba or micromamba environments `pip` or `uv pip` needs to be used.
-- The PyPI package does not necessarily include this fork's Emacs-first command
-  API. Use the source checkout above when you need the fork-specific behavior.
-- If you want to use the Studio mode with MaterialX support, see [PBR Studio](docs/pbr_studio.md#material-setup)
-
-### Using this fork from another Python project
 
 In a CAD project that already depends on upstream `ocp_vscode` or
 `ocp-vscode`, replace that dependency with this fork.
@@ -323,20 +265,104 @@ show(cq.Workplane().box(1, 2, 3))
 
 ### Emacs layer
 
-Detailed Emacs installation, keybindings, and workflow are documented in the
-separate Emacs package:
-[KarimAziev/ocp-cad-viewer](https://github.com/KarimAziev/ocp-cad-viewer).
+The intended build123d/CadQuery Emacs workflow is:
 
-At a high level, start this fork's standalone viewer:
+```mermaid
+flowchart TB
+    subgraph Setup[One-time setup]
+        A["Install vscode-ocp-cad-viewer"]
+        B["Add ocp_vscode show() to entry script"]
+        C["assembly.py<br/><br/>from ocp_vscode import show<br/>...<br/>show(my_part())"]
+        A --> B --> C
+    end
+
+    subgraph Reload[Hot reload loop]
+        D["Run once: ocp123d -p . assembly.py"]
+        E[Watch Python files in project]
+        F[Re-run entry script after save]
+        G[Generate updated geometry]
+        H[Refresh standalone browser viewer]
+        D --> E --> F --> G --> H
+    end
+
+    subgraph Control[Viewer control]
+        I["Open http://127.0.0.1:3939/viewer"]
+        J[Run ocp-cad-viewer-menu]
+        K[Send WebSocket camera commands]
+        I --> J --> K
+    end
+
+    C --> D
+    G --> H
+    H --> I
+    K --> I
+
+    click A "https://github.com/KarimAziev/vscode-ocp-cad-viewer" "Open vscode-ocp-cad-viewer"
+    click D "https://github.com/KarimAziev/build123d-ocp-preview" "Open build123d-ocp-preview"
+    click J "https://github.com/KarimAziev/ocp-cad-viewer" "Open ocp-cad-viewer"
+```
+
+Install `vscode-ocp-cad-viewer` and add its `show` command to your main project entry file.
+
+`assembly.py`
+
+```python
+from ocp_vscode import show
+
+from .my_build_part import my_part
+
+show(my_part())
+```
+
+`my_build_part.py`
+
+```python
+from build123d import (
+    CM,
+    MM,
+    Align,
+    BuildPart,
+    BuildSketch,
+    Part,
+    Rectangle,
+    extrude,
+)
+
+
+def my_part() -> Part:
+    with BuildPart() as angle_iron:
+        with BuildSketch():
+            Rectangle(2 * CM, 3 * MM, align=Align.MIN)
+            Rectangle(3 * MM, 3 * CM, align=Align.MIN)
+        extrude(amount=10 * CM)
+        if angle_iron.part is None:
+            raise RuntimeError("build123d builder did not produce a part")
+        return angle_iron.part
+```
+
+Run the `ocp123d` command from [build123d-ocp-preview](https://github.com/KarimAziev/build123d-ocp-preview) once on that entry file:
+
+```sh
+ocp123d -p . assembly.py
+```
+
+After that, you can edit the project, and the viewer will reload automatically.
+
+If you don't need hot-reloading, just start this fork's standalone viewer:
 
 ```bash
 .venv/bin/python -m ocp_vscode --port 3939
 ```
 
-Then use the Emacs package to open `http://127.0.0.1:3939/viewer` in an
-xwidget and send websocket camera commands directly from Emacs.
+**ocp-cad-viewer.el**
 
-### Hot reload with build123d
+Open `http://127.0.0.1:3939/viewer` in an xwidget or another browser. Run `M-x ocp-cad-viewer-menu` in Emacs to control it through the transient menu.
+
+Detailed Emacs installation, keybindings, and workflow are documented in the
+separate Emacs package:
+[KarimAziev/ocp-cad-viewer](https://github.com/KarimAziev/ocp-cad-viewer).
+
+### Hot reload
 
 For a fast build123d edit-preview loop, install
 [build123d-ocp-preview](https://github.com/KarimAziev/build123d-ocp-preview)
