@@ -1,6 +1,50 @@
-# _OCP CAD Viewer_ for VS Code
+# About
 
-_OCP CAD Viewer_ for VS Code is an extension to show [CadQuery](https://github.com/cadquery/cadquery) and [build123d](https://github.com/gumyr/build123d) objects in VS Code via the [three-cad-viewer](https://github.com/bernhard-42/three-cad-viewer) viewer component.
+This fork of the original VS Code extension for viewing
+[build123d](https://github.com/gumyr/build123d) and
+[CadQuery](https://github.com/cadquery/cadquery) objects adds
+WebSocket-based remote control to the standalone browser viewer.
+
+When the standalone viewer is open at
+`http://127.0.0.1:<port>/viewer` in an Emacs xwidget or any other
+JavaScript-capable browser, an external client can control the camera over the
+viewer websocket protocol. This enables rotation, zooming, panning, fixed-view
+switching, and reset commands without requiring browser focus or mouse input.
+
+The primary client for this fork is the Emacs Lisp package
+[KarimAziev/ocp-cad-viewer](https://github.com/KarimAziev/ocp-cad-viewer), but
+the protocol is editor-agnostic: any editor, script, or tool that can send
+websocket messages to `ws://127.0.0.1:<port>` can drive the viewer.
+
+**Table of Contents**
+
+> - [About](#about)
+>     - [Installation](#installation)
+>         - [Prerequisites](#prerequisites)
+>         - [Installation within VS Code](#installation-within-vs-code)
+>         - [Installation via CLI](#installation-via-cli)
+>         - [Using this fork from another Python project](#using-this-fork-from-another-python-project)
+>         - [Installation in code-server](#installation-in-code-server)
+>     - [Usage](#usage)
+>         - [Running code with VS Code's "Run" menu](#running-code-with-vs-codes-run-menu)
+>         - [Running code using Jupyter extension](#running-code-using-jupyter-extension)
+>         - [Standalone mode](#standalone-mode)
+>         - [Emacs layer](#emacs-layer)
+>         - [Viewer command API](#viewer-command-api)
+>         - [Debugging code with visual debugging](#debugging-code-with-visual-debugging)
+>         - [Library Manager](#library-manager)
+>         - [Extra topics](#extra-topics)
+>             - [Getting started](#getting-started)
+>             - [Working with the viewer](#working-with-the-viewer)
+>             - [Python `show*` commands](#python-show-commands)
+>             - [Python API reference](#python-api-reference)
+>             - [VS Code reference](#vs-code-reference)
+>             - [Examples and snippets](#examples-and-snippets)
+>             - [Other editors support](#other-editors-support)
+>             - [Help](#help)
+>     - [Development](#development)
+>     - [Changes](#changes)
+>     - [v3.4.0](#v340)
 
 ![](screenshots/overview.png)
 
@@ -26,9 +70,11 @@ show(cq.Workplane().box(1, 2, 3))
 
 ### Prerequisites
 
-- Microsoft VS Code, 1.85.0 or newer
-- The [Python extension](https://marketplace.visualstudio.com/items?itemName=ms-python.python) installed in VS Code
 - Necessary tools: `python` and `pip` or `uv pip`/`uv add` available in the Python environment that will be used for CAD development.
+- For this fork's source checkout and Emacs workflow:
+    - `git`
+    - `uv` or another Python virtual environment manager
+    - Node.js with `corepack`/`yarn`
 
 **Notes**:
 
@@ -37,7 +83,14 @@ show(cq.Workplane().box(1, 2, 3))
 
 ### Installation within VS Code
 
+<details><summary>Click to show</summary>
+<p>
+
 1. Open the VS Code Marketplace, and search and install _OCP CAD Viewer 3.4.0_.
+
+    The Marketplace version is the upstream extension. To use this fork's VS
+    Code extension build, install a VSIX built from this repository or from this
+    fork's releases if available.
 
     Afterwards the OCP viewer is available in the VS Code sidebar:
 
@@ -73,13 +126,56 @@ show(cq.Workplane().box(1, 2, 3))
 
 - If you run into issues, see [Troubleshooting](docs/troubleshooting.md)
 
+</p>
+</details>
+
 ### Installation via CLI
 
 If you aren't using VS Code, you can install/use this extension via command line
 
 Since this is a python extension, it is recommended to install/activate a virtual environment first, (e.g. uv, venv, poetry, conda, pip, etc)
 
-- uv based virtual environemnts:
+To use the fork-specific Emacs/standalone command API from a source checkout:
+
+```bash
+git clone https://github.com/KarimAziev/vscode-ocp-cad-viewer.git
+cd vscode-ocp-cad-viewer
+
+uv venv .venv
+uv pip install -e .
+
+corepack yarn install --frozen-lockfile
+```
+
+Install your CAD library into the same environment, for example:
+
+```bash
+uv pip install cadquery
+# or
+uv pip install build123d
+```
+
+Then start the standalone viewer:
+
+```bash
+.venv/bin/python -m ocp_vscode --port 3939
+```
+
+The viewer will be available at:
+
+```text
+http://127.0.0.1:3939/viewer
+```
+
+The `corepack yarn install --frozen-lockfile` step is needed for source
+checkouts because the standalone browser viewer uses the `three-cad-viewer`
+JavaScript/CSS assets from `node_modules` when release-packaged static assets
+are not present.
+
+If you install from PyPI, you get the upstream `ocp-vscode` package unless this
+fork has been published separately:
+
+- uv based virtual environments:
 
     ```
     source .venv/bin/activate  # to activate the uv virtual environment
@@ -97,7 +193,74 @@ Since this is a python extension, it is recommended to install/activate a virtua
 Notes:
 
 - The extension is in pypi only [pypi](https://pypi.org/project/ocp-vscode/), so for conda, mamba or micromamba environments `pip` or `uv pip` needs to be used.
+- The PyPI package does not necessarily include this fork's Emacs-first command
+  API. Use the source checkout above when you need the fork-specific behavior.
 - If you want to use the Studio mode with MaterialX support, see [PBR Studio](docs/pbr_studio.md#material-setup)
+
+### Using this fork from another Python project
+
+In a CAD project that already depends on upstream `ocp_vscode` or
+`ocp-vscode`, replace that dependency with this fork.
+
+For example, if a `requirements.txt` currently contains:
+
+```text
+build123d
+bd_warehouse
+ocp_vscode>=3.0.0
+```
+
+replace the `ocp_vscode` line with the fork:
+
+```text
+build123d
+bd_warehouse
+ocp-vscode @ git+https://github.com/KarimAziev/vscode-ocp-cad-viewer.git
+```
+
+Then install it in a regular venv:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+```
+
+For a `uv` project, add the fork directly:
+
+```bash
+uv add "ocp-vscode @ git+https://github.com/KarimAziev/vscode-ocp-cad-viewer.git"
+```
+
+If you are actively editing this fork locally, use an editable install instead:
+
+```bash
+# inside the CAD project
+uv add --editable /Users/km/src/vscode-ocp-cad-viewer
+```
+
+or with plain pip:
+
+```bash
+# inside the CAD project's activated venv
+python -m pip uninstall -y ocp-vscode ocp_vscode
+python -m pip install -e /Users/km/src/vscode-ocp-cad-viewer
+```
+
+For a local editable `requirements.txt`, use:
+
+```text
+build123d
+bd_warehouse
+-e /Users/km/src/vscode-ocp-cad-viewer
+```
+
+The Python import remains unchanged:
+
+```python
+from ocp_vscode import show, set_port
+from ocp_vscode.comms import viewer_command
+```
 
 ### Installation in code-server
 
@@ -128,6 +291,80 @@ The simplest way to run a Python script with OCP CAD Viewer is via VS Code's bui
 ### Standalone mode
 
 Standalone mode allows you to use OCP CAD Viewer without VS Code: `python -m ocp_vscode`. This starts a Flask server reachable at `http://127.0.0.1:<port>` (default `http://127.0.0.1:3939`). See [docs/standalone.md](docs/standalone.md) for details, including the full CLI reference and how to run it in Docker.
+
+In this fork, standalone mode is also the recommended entry point for Emacs:
+
+```bash
+.venv/bin/python -m ocp_vscode --port 3939
+```
+
+Open the viewer in a browser or Emacs xwidget:
+
+```text
+http://127.0.0.1:3939/viewer
+```
+
+Python code can then send CAD objects to the running viewer in the usual way:
+
+```python
+import cadquery as cq
+from ocp_vscode import set_port, show
+
+set_port(3939)
+show(cq.Workplane().box(1, 2, 3))
+```
+
+### Emacs layer
+
+Detailed Emacs installation, keybindings, and workflow are documented in the
+separate Emacs package:
+[KarimAziev/ocp-cad-viewer](https://github.com/KarimAziev/ocp-cad-viewer).
+
+At a high level, start this fork's standalone viewer:
+
+```bash
+.venv/bin/python -m ocp_vscode --port 3939
+```
+
+Then use the Emacs package to open `http://127.0.0.1:3939/viewer` in an
+xwidget and send websocket camera commands directly from Emacs.
+
+### Viewer command API
+
+This fork adds a generic command channel for viewer navigation. Raw websocket
+messages use the existing command prefix `C:` followed by JSON:
+
+```text
+C:{"type":"viewer_command","command":"view","value":"front"}
+```
+
+Supported camera commands include:
+
+```json
+{"type":"viewer_command","command":"view","value":"front"}
+{"type":"viewer_command","command":"view","value":"top"}
+{"type":"viewer_command","command":"view","value":"iso"}
+{"type":"viewer_command","command":"reset"}
+{"type":"viewer_command","command":"rotate","axis":"x","delta":10}
+{"type":"viewer_command","command":"rotate","axis":"z","delta":-10}
+{"type":"viewer_command","command":"pan","direction":"left","step":10}
+{"type":"viewer_command","command":"pan","direction":"up","step":10}
+{"type":"viewer_command","command":"zoom","delta":100}
+```
+
+Python clients can use the helper instead of constructing websocket frames:
+
+```python
+from ocp_vscode.comms import viewer_command
+
+viewer_command("view", value="front", port=3939)
+viewer_command("rotate", axis="x", delta=10, port=3939)
+viewer_command("pan", direction="left", step=10, port=3939)
+viewer_command("zoom", delta=100, port=3939)
+```
+
+`viewer_command(...)` is fire-and-forget: a `{}` return means the websocket
+payload was sent, not that the browser acknowledged or applied the command.
 
 ### Debugging code with visual debugging
 
@@ -185,6 +422,8 @@ The "Library Manager" in the _OCP CAD Viewer_ sidebar lets you install or upgrad
 #### Other editors support
 
 - [Using OCP CAD Viewer with NeoVim](docs/editors.md)
+- [Emacs standalone viewer control](docs/emacs.md)
+- [Emacs Lisp control package](https://github.com/KarimAziev/ocp-cad-viewer)
 
 #### Help
 
@@ -192,11 +431,45 @@ The "Library Manager" in the _OCP CAD Viewer_ sidebar lets you install or upgrad
 
 ## Development
 
-Testing:
+This fork has two build surfaces:
+
+- TypeScript for the VS Code extension.
+- Python package/runtime files for standalone mode.
+
+For a local source checkout:
+
+```bash
+uv venv .venv
+uv pip install -e . pytest
+corepack yarn install --frozen-lockfile
+```
+
+Compile the TypeScript extension code:
+
+```bash
+corepack yarn run compile
+```
+
+Run the focused standalone/viewer-command tests:
+
+```bash
+.venv/bin/python -m pytest \
+  tests/test_standalone_static.py \
+  tests/test_viewer_command.py \
+  tests/test_standalone_cli.py \
+  -q
+```
+
+The upstream Makefile still provides the broader test target:
 
 ```bash
 make tests
 ```
+
+For release packaging, `make dist` copies `three-cad-viewer` assets into
+`ocp_vscode/static` and builds Python/VSIX artifacts. For local standalone
+development, this fork can also serve those assets directly from
+`node_modules/three-cad-viewer/dist` after `yarn install`.
 
 ## Changes
 
