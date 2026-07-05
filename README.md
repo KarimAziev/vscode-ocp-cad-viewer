@@ -16,6 +16,12 @@ The primary client for this fork is the Emacs Lisp package
 the protocol is editor-agnostic: any editor, script, or tool that can send
 websocket messages to `ws://127.0.0.1:<port>` can drive the viewer.
 
+For a hot-reloading edit-preview loop, see
+[KarimAziev/build123d-ocp-preview](https://github.com/KarimAziev/build123d-ocp-preview).
+It provides the `ocp123d` command, which starts a long-lived `ocp_vscode`
+viewer server, watches a project recursively, and re-runs preview entry scripts
+when Python files change.
+
 **Table of Contents**
 
 > - [About](#about)
@@ -30,6 +36,7 @@ websocket messages to `ws://127.0.0.1:<port>` can drive the viewer.
 >         - [Running code using Jupyter extension](#running-code-using-jupyter-extension)
 >         - [Standalone mode](#standalone-mode)
 >         - [Emacs layer](#emacs-layer)
+>         - [Hot reload with build123d](#hot-reload-with-build123d)
 >         - [Viewer command API](#viewer-command-api)
 >         - [Debugging code with visual debugging](#debugging-code-with-visual-debugging)
 >         - [Library Manager](#library-manager)
@@ -329,6 +336,31 @@ At a high level, start this fork's standalone viewer:
 Then use the Emacs package to open `http://127.0.0.1:3939/viewer` in an
 xwidget and send websocket camera commands directly from Emacs.
 
+### Hot reload with build123d
+
+For a fast build123d edit-preview loop, install
+[build123d-ocp-preview](https://github.com/KarimAziev/build123d-ocp-preview)
+in the same Python environment as your CAD project. Its `ocp123d` command
+starts one long-lived `ocp_vscode` viewer server, watches Python files under
+the project directory, and re-runs your preview entry script when files change.
+
+Example:
+
+```bash
+cd /path/to/my-build123d-project
+source .venv/bin/activate
+ocp123d -p . assembly.py
+```
+
+Then open the printed viewer URL, usually:
+
+```text
+http://127.0.0.1:3939/viewer
+```
+
+This complements the Emacs websocket control layer: `ocp123d` keeps geometry
+fresh while the Emacs package controls camera navigation.
+
 ### Viewer command API
 
 This fork adds a generic command channel for viewer navigation. Raw websocket
@@ -424,6 +456,7 @@ The "Library Manager" in the _OCP CAD Viewer_ sidebar lets you install or upgrad
 - [Using OCP CAD Viewer with NeoVim](docs/editors.md)
 - [Emacs standalone viewer control](docs/emacs.md)
 - [Emacs Lisp control package](https://github.com/KarimAziev/ocp-cad-viewer)
+- [Hot reload preview](https://github.com/KarimAziev/build123d-ocp-preview)
 
 #### Help
 
