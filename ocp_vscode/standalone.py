@@ -23,7 +23,7 @@ import sys
 import time
 import yaml
 from pathlib import Path
-from flask import Flask, render_template, request, redirect
+from flask import Flask, render_template, request, redirect, send_from_directory, abort
 from flask_sock import Sock
 from flask import cli
 from ocp_vscode.comms import MessageType
@@ -34,6 +34,15 @@ from ocp_vscode.standalone_defaults import DEFAULTS
 import pyperclip
 
 CONFIG_FILE = Path.home() / ".ocpvscode_standalone"
+PACKAGE_ROOT = Path(__file__).resolve().parent
+STATIC_ROOT = PACKAGE_ROOT / "static"
+THREE_CAD_VIEWER_DIST = (
+    PACKAGE_ROOT.parent / "node_modules" / "three-cad-viewer" / "dist"
+)
+THREE_CAD_VIEWER_ASSETS = {
+    "js/three-cad-viewer.esm.js": "three-cad-viewer.esm.js",
+    "css/three-cad-viewer.css": "three-cad-viewer.css",
+}
 
 SCRIPTS = """
     <script type="module" src="static/js/three-cad-viewer.esm.js"></script>
@@ -53,8 +62,9 @@ PORT = 0
 
 
 def cleanup():
-    print(f"Cleaning up with port {PORT}...")
-    del_port(PORT)
+    if PORT:
+        print(f"Cleaning up with port {PORT}...")
+        del_port(PORT)
 
 
 atexit.register(cleanup)
@@ -217,7 +227,7 @@ class Viewer:
             log = logging.getLogger("werkzeug")
             log.setLevel(logging.ERROR)
 
-        self.app = Flask(__name__)
+        self.app = Flask(__name__, static_folder=None)
         self.sock = Sock(self.app)
 
         self.backend = ViewerBackend(self.port)
@@ -227,6 +237,7 @@ class Viewer:
         self.splash = True
 
         self.sock.route("/")(self.handle_message)
+        self.app.add_url_rule("/static/<path:filename>", "static", self.static_file)
         self.app.add_url_rule("/viewer", "viewer", self.index)
         self.app.add_url_rule(
             "/", "redirect_to_viewer", lambda: redirect("/viewer", code=302)
@@ -349,6 +360,20 @@ class Viewer:
             treeWidth=self.config["tree_width"],
             **self.config,
         )
+
+    def static_file(self, filename):
+        packaged_asset = STATIC_ROOT / filename
+        if packaged_asset.is_file():
+            return send_from_directory(STATIC_ROOT, filename)
+
+        fallback_asset = THREE_CAD_VIEWER_ASSETS.get(filename)
+        if (
+            fallback_asset is not None
+            and (THREE_CAD_VIEWER_DIST / fallback_asset).is_file()
+        ):
+            return send_from_directory(THREE_CAD_VIEWER_DIST, fallback_asset)
+
+        abort(404)
 
     def not_registered(self):
         print(
