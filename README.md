@@ -25,12 +25,18 @@ when Python files change.
 The three repos have separate responsibilities:
 
 ```mermaid
-flowchart LR
-    subgraph Repositories[Repository responsibilities]
-        A[build123d-ocp-preview<br/><small>Keeps geometry fresh</small>]
-        B[vscode-ocp-cad-viewer<br/><small>Serves/displays geometry and exposes viewer_command</small>]
-        C[ocp-cad-viewer.el<br/><small>Keeps camera/navigation control inside Emacs</small>]
-    end
+flowchart TB
+    A[build123d-ocp-preview]
+    B[vscode-ocp-cad-viewer]
+    C[ocp-cad-viewer.el]
+
+    A -->|keeps geometry fresh| D[Preview pipeline]
+    B -->|serves/displays geometry| E[Viewer backend]
+    C -->|camera control in Emacs| F[Remote navigation]
+
+    click A "https://github.com/KarimAziev/build123d-ocp-preview" "Open repository"
+    click B "https://github.com/KarimAziev/vscode-ocp-cad-viewer" "Open repository"
+    click C "https://github.com/KarimAziev/ocp-cad-viewer" "Open repository"
 ```
 
 **Table of Contents**
@@ -45,6 +51,7 @@ flowchart LR
 >         - [Running code with VS Code's "Run" menu](#running-code-with-vs-codes-run-menu)
 >         - [Running code using Jupyter extension](#running-code-using-jupyter-extension)
 >         - [Standalone mode](#standalone-mode)
+>         - [Browser keyboard controls](#browser-keyboard-controls)
 >         - [Emacs layer](#emacs-layer)
 >         - [Hot reload](#hot-reload)
 >         - [Viewer command API](#viewer-command-api)
