@@ -62,7 +62,7 @@ export function execute(cmd: string, needWorkspaceFolder: boolean = true) {
         let result = execSync(cmd, { cwd: currentFolder }).toString();
         return result;
     } catch (error: any) {
-        output.error(error.stderr.toString());
+        output.error(error.stderr?.toString() ?? error.message ?? String(error));
         throw Error(error.message);
     }
 }
@@ -80,7 +80,7 @@ export function pythonVersion(python: string): string {
     try {
         return execSync(`"${python}" --version`).toString();
     } catch (error: any) {
-        output.error(error.stderr.toString());
+        output.error(error.stderr?.toString() ?? error.message ?? String(error));
         return "";
     }
 }
