@@ -237,6 +237,17 @@ limitations under the License.
                 refreshAfterCameraCommand();
             }
 
+            function applyCameraRotation(target, position, rotation) {
+                const camera = viewer.camera.getCamera();
+                const offset = position.sub(target).applyQuaternion(rotation);
+                camera.position.copy(target.clone().add(offset));
+                camera.quaternion.premultiply(rotation).normalize();
+                if (viewer.controls && typeof viewer.controls.setTarget === "function") {
+                    viewer.controls.setTarget(target);
+                }
+                refreshAfterCameraCommand();
+            }
+
             function handleViewerCommand(data) {
                 if (!viewer || !data || typeof data.command !== "string") {
                     return;
@@ -335,8 +346,7 @@ limitations under the License.
 
                     const rotation = camera.quaternion.clone();
                     rotation.setFromAxisAngle(axis, radians);
-                    const offset = position.sub(target).applyQuaternion(rotation);
-                    applyCameraTargetAndPosition(target, target.clone().add(offset));
+                    applyCameraRotation(target, position, rotation);
                 }
             }
 

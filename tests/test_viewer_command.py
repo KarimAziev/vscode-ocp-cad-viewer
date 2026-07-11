@@ -191,3 +191,16 @@ def test_viewer_templates_include_browser_keyboard_controls():
     assert 'return { command: "rotate", axis: "z", delta: keyboardRotateStep };' in resource_template
     assert 'return { command: "pan", direction: "left", step: keyboardPanStep };' in resource_template
     assert 'return { command: "view", value: fixedViews[key] };' in resource_template
+
+
+def test_viewer_rotate_command_preserves_camera_roll_without_look_at():
+    resource_template = Path("resources/viewer.html").read_text(encoding="utf-8")
+    package_template = Path("ocp_vscode/templates/viewer.html").read_text(encoding="utf-8")
+
+    assert resource_template == package_template
+    rotate_branch = resource_template.split('if (command === "rotate") {', 1)[1]
+    rotate_branch = rotate_branch.split("\n                }\n            }", 1)[0]
+
+    assert "applyCameraRotation(target, position, rotation);" in rotate_branch
+    assert "applyCameraTargetAndPosition(" not in rotate_branch
+    assert "camera.lookAt(target);" not in rotate_branch
